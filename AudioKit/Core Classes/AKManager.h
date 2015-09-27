@@ -30,11 +30,6 @@ NS_ASSUME_NONNULL_BEGIN
 /// Determines whether or not to log
 @property BOOL isLogging;
 
-#ifdef AK_TESTING
-/// Place to put lines of testing logs
-@property NSMutableArray *testLog;
-#endif
-
 /// The default orchestra
 @property AKOrchestra *orchestra;
 
@@ -111,12 +106,6 @@ NS_ASSUME_NONNULL_BEGIN
 /// Start recording to a given URL
 /// @param url URL to save the recording at
 - (void)startRecordingToURL:(NSURL *)url;
-
-/// Enable MIDI
-- (void)enableMidi;
-
-/// Disable MIDI
-- (void)disableMidi;
 
 // Utilities
 

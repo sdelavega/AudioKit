@@ -17,7 +17,7 @@
 NS_ASSUME_NONNULL_BEGIN
 @interface AKDecimator : AKAudio
 /// Instantiates the decimator with all values
-/// @param input Audio to be decimated! [Default Value: ]
+/// @param input Audio to be decimated! 
 /// @param bitDepth The bit depth of signal output. Typically in range (1-24). Non-integer values are OK. Updated at Control-rate. [Default Value: 24]
 /// @param sampleRate The sample rate of signal output. Non-integer values are OK. Updated at Control-rate. [Default Value: 44100]
 - (instancetype)initWithInput:(AKParameter *)input
@@ -34,11 +34,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Instantiates the decimator with default values
 /// @param input Audio to be decimated!
-- (instancetype)initDefaultDecimatorWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetDefaultDecimatorWithInput:(AKParameter *)input;
 
 /// Instantiates the decimator with default values
 /// @param input Audio to be decimated!
-+ (instancetype)defaultDecimatorWithInput:(AKParameter *)input;
++ (instancetype)presetDefaultDecimatorWithInput:(AKParameter *)input;
 
 /// Instantiates the decimator with a crunchy sound
 /// @param input Audio to be decimated!

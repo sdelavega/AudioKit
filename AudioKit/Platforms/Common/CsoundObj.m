@@ -5,22 +5,23 @@
  Copyright (C) 2014 Steven Yi, Victor Lazzarini, Aurelius Prochazka
  Copyright (C) 2015 Stephane Peter
 
- This file is part of Csound for iOS and OS X.
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
  
- The Csound for iOS Library is free software; you can redistribute it
- and/or modify it under the terms of the GNU Lesser General Public
- License as published by the Free Software Foundation; either
- version 2.1 of the License, or (at your option) any later version.
+ The above copyright notice and this permission notice shall be included in
+ all copies or substantial portions of the Software.
  
- Csound is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Lesser General Public License for more details.
- 
- You should have received a copy of the GNU Lesser General Public
- License along with Csound; if not, write to the Free Software
- Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
- 02111-1307 USA
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ THE SOFTWARE.
  
  */
 
@@ -33,8 +34,7 @@
 
 #import "CsoundObj.h"
 #import "csound.h"
-
-//#import "CsoundMIDI.h"
+#import "csdebug.h"
 
 OSStatus  Csound_Render(void *inRefCon,
                         AudioUnitRenderActionFlags *ioActionFlags,
@@ -42,6 +42,8 @@ OSStatus  Csound_Render(void *inRefCon,
                         UInt32 dump,
                         UInt32 inNumberFrames,
                         AudioBufferList *ioData);
+
+NSString * const AKCsoundAPIMessageNotification = @"AKCSoundAPIMessage";
 
 @interface CsoundObj ()
 {
@@ -83,7 +85,6 @@ OSStatus  Csound_Render(void *inRefCon,
         _shouldMute = NO;
         _bindings  = [[NSMutableArray alloc] init];
         _listeners = [[NSMutableArray alloc] init];
-        _midiInEnabled = NO;
     }
     
     return self;
@@ -110,6 +111,7 @@ OSStatus  Csound_Render(void *inRefCon,
     self.thread = [[NSThread alloc] initWithTarget:self
                                           selector:@selector(runCsound:)
                                             object:csdFilePath];
+    self.thread.name = @"AK Csound";
     [self.thread start];
 }
 
@@ -153,6 +155,7 @@ OSStatus  Csound_Render(void *inRefCon,
     self.thread = [[NSThread alloc] initWithTarget:self
                                           selector:@selector(runCsound:)
                                             object:csdFilePath];
+    self.thread.name = @"AK Csound File";
     [self.thread start];
 }
 
@@ -305,6 +308,17 @@ OSStatus  Csound_Render(void *inRefCon,
     }
 }
 
+- (void)notifyListenersOfAboutToStart
+{
+    @synchronized(self.listeners) {
+        for (id<CsoundObjListener> listener in self.listeners) {
+            if ([listener respondsToSelector:@selector(csoundObjWillStart:)]) {
+                [listener csoundObjWillStart:self];
+            }
+        }
+    }
+}
+
 - (void)notifyListenersOfStartup
 {
     @synchronized(self.listeners) {
@@ -315,6 +329,7 @@ OSStatus  Csound_Render(void *inRefCon,
         }
     }
 }
+
 - (void)notifyListenersOfCompletion
 {
     @synchronized(self.listeners) {
@@ -334,9 +349,19 @@ static void messageCallback(CSOUND *cs, int attr, const char *format, va_list va
             char message[1024];
             vsnprintf(message, 1024, format, valist);
             
-            [obj.messageDelegate messageReceivedFrom:obj
-                                                attr:attr
-                                             message:[NSString stringWithUTF8String:message]];
+            if (attr == CSOUNDMSG_API_RESP) {
+                NSArray *substr = [[NSString stringWithUTF8String:message] componentsSeparatedByString:@":"];
+                
+                if (substr.count > 1) {
+                    [[NSNotificationCenter defaultCenter] postNotificationName:AKCsoundAPIMessageNotification
+                                                                        object:nil
+                                                                      userInfo:@{@"type":substr[0], @"message":substr[1]}];
+                }
+            } else {
+                [obj.messageDelegate messageReceivedFrom:obj
+                                                    attr:attr
+                                                 message:[NSString stringWithUTF8String:message]];
+            }
         }
     }
 }
@@ -347,10 +372,7 @@ static void messageCallback(CSOUND *cs, int attr, const char *format, va_list va
 
 - (CSOUND *)getCsound
 {
-    if (self.running) {
-        return _cs;
-    }
-    return nil;
+    return _cs;
 }
 
 - (MYFLT *)getInputChannelPtr:(NSString *)channelName
@@ -467,105 +489,104 @@ OSStatus  Csound_Render(void *inRefCon,
     Float32 *buffer;
 #endif
     
-    @synchronized(obj) {
-        
+    
 #if TARGET_OS_IPHONE
-        AudioUnitRender(obj->_csAUHAL, ioActionFlags, inTimeStamp, 1, inNumberFrames, ioData);
-        for(frame=0; frame < inNumberFrames; frame++){
-            @autoreleasepool {
-                if(AKSettings.shared.audioInputEnabled) {
-                    for (k = 0; k < nchnls; k++){
-                        buffer = (SInt32 *) ioData->mBuffers[k].mData;
-                        spin[insmps++] =(1./coef)*buffer[frame];
-                    }
-                }
-                
-                for (k = 0; k < nchnls; k++) {
+    AudioUnitRender(obj->_csAUHAL, ioActionFlags, inTimeStamp, 1, inNumberFrames, ioData);
+    for(frame=0; frame < inNumberFrames; frame++){
+        @autoreleasepool {
+            if(AKSettings.shared.audioInputEnabled) {
+                for (k = 0; k < nchnls; k++){
                     buffer = (SInt32 *) ioData->mBuffers[k].mData;
-                    if (obj.shouldMute == NO) {
-                        buffer[frame] = (SInt32) lrintf(spout[nsmps++]*coef) ;
-                    } else {
-                        buffer[frame] = 0;
-                    }
-                }
-                
-                @synchronized(obj.bindings) {
-                    if(nsmps == ksmps*nchnls){
-                        for(id<CsoundBinding> binding in obj.bindings) {
-                            if ([binding respondsToSelector:@selector(updateValuesToCsound)]) {
-                                [binding updateValuesToCsound];
-                            }
-                        }
-                        if(!ret) {
-                            ret = csoundPerformKsmps(cs);
-                        } else {
-                            obj.running = NO;
-                        }
-                        for(id<CsoundBinding> binding in obj.bindings) {
-                            if ([binding respondsToSelector:@selector(updateValuesFromCsound)]) {
-                                [binding updateValuesFromCsound];
-                            }
-                        }
-                        insmps = nsmps = 0;
-                    }
+                    spin[insmps++] =(1./coef)*buffer[frame];
                 }
             }
-        }
-#elif TARGET_OS_MAC
-        for(i=0; i < slices; i++){
-            @autoreleasepool {
-                /* performance */
-                if(AKSettings.shared.audioInputEnabled) {
-                    for (k = 0; k < nchnls; k++){
-                        buffer = (Float32 *) ioData->mBuffers[k].mData;
-                        for(j=0; j < ksmps; j++){
-                            spin[j*nchnls+k] = buffer[j+i*ksmps];
-                        }
-                    }
+            
+            for (k = 0; k < nchnls; k++) {
+                buffer = (SInt32 *) ioData->mBuffers[k].mData;
+                if (obj.shouldMute == NO) {
+                    buffer[frame] = (SInt32) lrintf(spout[nsmps++]*coef) ;
+                } else {
+                    buffer[frame] = 0;
                 }
-                
-                for (k = 0; k < nchnls; k++) {
-                    buffer = (Float32 *) ioData->mBuffers[k].mData;
-                    if (obj.shouldMute == NO) {
-                        for(j=0; j < ksmps; j++){
-                            buffer[j+i*ksmps] = (Float32) spout[j*nchnls+k];
-                        }
-                    } else {
-                        memset(buffer, 0, sizeof(Float32) * inNumberFrames);
-                    }
-                }
-
-                @synchronized(obj.bindings) {
+            }
+            
+            @synchronized(obj.bindings) {
+                if(nsmps == ksmps*nchnls){
                     for(id<CsoundBinding> binding in obj.bindings) {
                         if ([binding respondsToSelector:@selector(updateValuesToCsound)]) {
                             [binding updateValuesToCsound];
                         }
                     }
-                    
                     if(!ret) {
                         ret = csoundPerformKsmps(cs);
                     } else {
                         obj.running = NO;
                     }
-                    
                     for(id<CsoundBinding> binding in obj.bindings) {
                         if ([binding respondsToSelector:@selector(updateValuesFromCsound)]) {
                             [binding updateValuesFromCsound];
                         }
                     }
+                    insmps = nsmps = 0;
                 }
             }
         }
-#endif
-        
-        // Write to file.
-        if (obj.shouldRecord) {
-            OSStatus err = ExtAudioFileWriteAsync(obj->_file, inNumberFrames, ioData);
-            if (err != noErr) {
-                NSLog(@"***Error writing to file: %@", @(err));
+    }
+#elif TARGET_OS_MAC
+    for(i=0; i < slices; i++){
+        @autoreleasepool {
+            /* performance */
+            if(AKSettings.shared.audioInputEnabled) {
+                for (k = 0; k < nchnls; k++){
+                    buffer = (Float32 *) ioData->mBuffers[k].mData;
+                    for(j=0; j < ksmps; j++){
+                        spin[j*nchnls+k] = buffer[j+i*ksmps];
+                    }
+                }
+            }
+            
+            for (k = 0; k < nchnls; k++) {
+                buffer = (Float32 *) ioData->mBuffers[k].mData;
+                if (obj.shouldMute == NO) {
+                    for(j=0; j < ksmps; j++){
+                        buffer[j+i*ksmps] = (Float32) spout[j*nchnls+k];
+                    }
+                } else {
+                    memset(buffer, 0, sizeof(Float32) * inNumberFrames);
+                }
+            }
+            
+            @synchronized(obj.bindings) {
+                for(id<CsoundBinding> binding in obj.bindings) {
+                    if ([binding respondsToSelector:@selector(updateValuesToCsound)]) {
+                        [binding updateValuesToCsound];
+                    }
+                }
+                
+                if(!ret) {
+                    ret = csoundPerformKsmps(cs);
+                } else {
+                    obj.running = NO;
+                }
+                
+                for(id<CsoundBinding> binding in obj.bindings) {
+                    if ([binding respondsToSelector:@selector(updateValuesFromCsound)]) {
+                        [binding updateValuesFromCsound];
+                    }
+                }
             }
         }
     }
+#endif
+    
+    // Write to file.
+    if (obj.shouldRecord) {
+        OSStatus err = ExtAudioFileWriteAsync(obj->_file, inNumberFrames, ioData);
+        if (err != noErr) {
+            NSLog(@"***Error writing to file: %@", @(err));
+        }
+    }
+    
 #if TARGET_OS_IPHONE
     obj->_nsmps = nsmps;
 #endif
@@ -573,12 +594,44 @@ OSStatus  Csound_Render(void *inRefCon,
     return 0;
 }
 
+#ifdef DEBUG
+// Handling of Csound breakpoints
+static void AKBreakpoint(CSOUND *cs, debug_bkpt_info_t *bkpt, void *userdata)
+{
+    CsoundObj *obj = (__bridge CsoundObj *)(userdata);
+    
+    if (obj.breakpointHandler) {
+        // TODO: Gather the info in bkpt in a Cocoa way and pass to the handler
+        NSMutableDictionary *vars = [NSMutableDictionary dictionary];
+        debug_variable_t *var = bkpt->instrVarList;
+        while (var) {
+            if (!strcmp(var->typeName, "S")) {
+                [vars setObject:[NSString stringWithCString:var->data encoding:NSASCIIStringEncoding]
+                         forKey:[NSString stringWithCString:var->name encoding:NSASCIIStringEncoding]];
+            } else { // assume i, k, a, r
+                [vars setObject:[NSNumber numberWithFloat:*((MYFLT *)var->data)]
+                         forKey:[NSString stringWithCString:var->name encoding:NSASCIIStringEncoding]];
+            }
+            var = var->next;
+        }
+        obj.breakpointHandler([NSString stringWithCString:bkpt->currentOpcode->opname encoding:NSASCIIStringEncoding],
+                              bkpt->currentOpcode->line, vars);
+    }
+}
+#endif
+
 - (void)runCsoundToDisk:(NSArray *)paths
 {
     @autoreleasepool {
         if (_cs == nil)
             _cs = csoundCreate(NULL);
+#ifdef DEBUG
+        csoundDebuggerInit(_cs);
+        csoundSetBreakpointCallback(_cs, AKBreakpoint, (__bridge void *)(self));
+#endif
 
+        [self notifyListenersOfAboutToStart];
+        
         char *argv[] = { "csound", (char*)[paths[0] cStringUsingEncoding:NSASCIIStringEncoding],
                          "-o",     (char*)[paths[1] cStringUsingEncoding:NSASCIIStringEncoding]};
         int ret = csoundCompile(_cs, 4, argv);
@@ -599,10 +652,12 @@ OSStatus  Csound_Render(void *inRefCon,
         
         if(!ret) {
             csoundPerform(_cs);
+#ifdef DEBUG
+            csoundDebuggerClean(_cs);
+#endif
             csoundCleanup(_cs);
             csoundDestroy(_cs);
         }
-        
         [self cleanupBindings];
         [self notifyListenersOfCompletion];
     }
@@ -611,21 +666,21 @@ OSStatus  Csound_Render(void *inRefCon,
 - (void)runCsound:(NSString *)csdFilePath
 {
     @autoreleasepool {
-        CSOUND *cs;
-        
-        cs = csoundCreate(NULL);
+        _cs = csoundCreate(NULL);
 #if TARGET_OS_IPHONE
-        csoundSetHostImplementedAudioIO(cs, 1, 0);
+        csoundSetHostImplementedAudioIO(_cs, 1, 0);
 #endif
-        csoundSetMessageCallback(cs, messageCallback);
-        csoundSetHostData(cs, (__bridge void *)self);
+#ifdef DEBUG
+        csoundDebuggerInit(_cs);
+        csoundSetBreakpointCallback(_cs, AKBreakpoint, (__bridge void *)(self));
+#endif
+        csoundSetMessageCallback(_cs, messageCallback);
+        csoundSetHostData(_cs, (__bridge void *)self);
         
-        if (self.midiInEnabled) {
-//            [CsoundMIDI setMidiInCallbacks:cs];
-        }
-        
+        [self notifyListenersOfAboutToStart];
+
 #if TARGET_OS_IPHONE
-        char *argv[] = { "csound",
+        char *argv[] = { "csound", "-+rtmidi=null",
 # ifdef AK_TESTING
             "-+rtaudio=null",
 # else
@@ -633,7 +688,7 @@ OSStatus  Csound_Render(void *inRefCon,
 # endif            
                         (char*)[csdFilePath cStringUsingEncoding:NSASCIIStringEncoding]};
 #else
-        char *argv[] = { "csound", "-+ignore_csopts=0",
+        char *argv[] = { "csound", "-+ignore_csopts=0", "-+rtmidi=null",
 # ifdef AK_TESTING
                          "-+rtaudio=null",
 # else
@@ -642,15 +697,14 @@ OSStatus  Csound_Render(void *inRefCon,
                          "-b256", (char*)[csdFilePath cStringUsingEncoding:NSASCIIStringEncoding]};
 #endif
         
-        int ret = csoundCompile(cs, sizeof(argv)/sizeof(char *), argv);
+        int ret = csoundCompile(_cs, sizeof(argv)/sizeof(char *), argv);
         _running = true;
         _nsmps = 0;
         
         if(!ret) {
-            _cs = cs;
             _ret = ret;
-            _nchnls = csoundGetNchnls(cs);
-            _bufframes = (UInt32)csoundGetOutputBufferSize(cs)/_nchnls;
+            _nchnls = csoundGetNchnls(_cs);
+            _bufframes = (UInt32)csoundGetOutputBufferSize(_cs)/_nchnls;
             self.running = YES;
             
             [self setupBindings];
@@ -690,7 +744,7 @@ OSStatus  Csound_Render(void *inRefCon,
                     destFormat.mFormatID         = kAudioFormatLinearPCM;
                     destFormat.mFormatFlags      = kLinearPCMFormatFlagIsPacked |
                     kLinearPCMFormatFlagIsSignedInteger;
-                    destFormat.mSampleRate       = csoundGetSr(cs);
+                    destFormat.mSampleRate       = csoundGetSr(_cs);
                     destFormat.mChannelsPerFrame = _nchnls;
                     destFormat.mBytesPerPacket   = _nchnls * 2;
                     destFormat.mBytesPerFrame    = _nchnls * 2;
@@ -746,12 +800,15 @@ OSStatus  Csound_Render(void *inRefCon,
                 }
                 [self stopAU:YES];
             }
-            csoundDestroy(cs);
+#ifdef DEBUG
+            csoundDebuggerClean(_cs);
+#endif
+            csoundDestroy(_cs);
         }
 #elif TARGET_OS_MAC
-        float coef = (float) SHRT_MAX / csoundGet0dBFS(cs);
+        float coef = (float) SHRT_MAX / csoundGet0dBFS(_cs);
         
-        MYFLT* spout = csoundGetSpout(cs);
+        MYFLT* spout = csoundGetSpout(_cs);
         AudioBufferList bufferList;
         bufferList.mNumberBuffers = 1;
         
@@ -760,8 +817,8 @@ OSStatus  Csound_Render(void *inRefCon,
         if (self.shouldRecord) {
             [self recordToURL:self.outputURL];
             bufferList.mBuffers[0].mNumberChannels = _nchnls;
-            bufferList.mBuffers[0].mDataByteSize   = _nchnls * csoundGetKsmps(cs) * 2;// 16-bit PCM output
-            bufferList.mBuffers[0].mData           = malloc(sizeof(short) * _nchnls * csoundGetKsmps(cs));
+            bufferList.mBuffers[0].mDataByteSize   = _nchnls * csoundGetKsmps(_cs) * 2;// 16-bit PCM output
+            bufferList.mBuffers[0].mData           = malloc(sizeof(short) * _nchnls * csoundGetKsmps(_cs));
         }
         
         while (!_ret && self.running) {
@@ -774,10 +831,10 @@ OSStatus  Csound_Render(void *inRefCon,
                 // Write to file.
                 if (self.shouldRecord) {
                     short* data = (short*)bufferList.mBuffers[0].mData;
-                    for (int i = 0; i < csoundGetKsmps(cs) * _nchnls; i++) {
+                    for (int i = 0; i < csoundGetKsmps(_cs) * _nchnls; i++) {
                         data[i] = (short)lrintf(spout[i] * coef);
                     }
-                    OSStatus err = ExtAudioFileWriteAsync(_file, csoundGetKsmps(cs), &bufferList);
+                    OSStatus err = ExtAudioFileWriteAsync(_file, csoundGetKsmps(_cs), &bufferList);
                     if (err != noErr) {
                         NSLog(@"***Error writing to file: %@", @(err));
                     }
@@ -793,8 +850,11 @@ OSStatus  Csound_Render(void *inRefCon,
             ExtAudioFileDispose(_file);
         }
     }
-    
-    csoundDestroy(cs);
+
+#ifdef DEBUG
+    csoundDebuggerClean(_cs);
+#endif
+    csoundDestroy(_cs);
 #endif
     
         self.running = NO;
@@ -997,6 +1057,51 @@ OSStatus  Csound_Render(void *inRefCon,
     }
 #endif // No effect on Mac so far
 }
+
+// -----------------------------------------------------------------------------
+#  pragma mark - Csound debugger and breakpoints (not for release builds)
+// -----------------------------------------------------------------------------
+
+#ifdef DEBUG
+- (void)debugStop
+{
+    csoundDebugStop(_cs);
+}
+
+- (void)debugContinue
+{
+    csoundDebugContinue(_cs);
+}
+
+- (void)debugNext
+{
+    csoundDebugNext(_cs);
+}
+
+- (void)setBreakpointAt:(int)line instrument:(int)instr skip:(int)skip
+{
+    csoundSetBreakpoint(_cs, line, instr, skip);
+}
+
+- (void)removeBreakpointAt:(int)line instrument:(int)instr
+{
+    csoundRemoveBreakpoint(_cs, line, instr);
+}
+
+- (void)setInstrumentBreakpoint:(float)instr skip:(int)skip
+{
+    csoundSetInstrumentBreakpoint(_cs, instr, skip);
+}
+
+- (void)removeInstrumentBreakpoint:(float)instr
+{
+    csoundRemoveInstrumentBreakpoint(_cs, instr);
+}
+- (void)clearBreakpoints
+{
+    csoundClearBreakpoints(_cs);
+}
+#endif
 
 
 // -----------------------------------------------------------------------------

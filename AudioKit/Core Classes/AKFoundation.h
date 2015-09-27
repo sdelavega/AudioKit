@@ -19,9 +19,15 @@
 #import "AKManager.h"
 #import "AKOrchestra.h"
 
+# pragma mark - MIDI
+#import "AKMidi.h"
+#import "AKMidiEvent.h"
+#import "AKMidiNote.h"
+
 # pragma mark - Instruments
 #import "AKInstrument.h"
 #import "AKInstrumentProperty.h"
+#import "AKMidiInstrument.h"
 
 #pragma mark - Notes
 #import "AKNote.h"
@@ -172,11 +178,15 @@
 
 // Operations - Signal Modifiers - Effects
 #import "AKCompressor.h"
+#import "AKDistortion.h"
 #import "AKDopplerEffect.h"
 #import "AKFlanger.h"
+#import "AKPitchShifter.h"
 #import "AKRingModulator.h"
 
 // Operations - Signal Modifiers - Filters
+#import "AKAntiresonantFilter.h"
+#import "AKClipper.h"
 #import "AKCombFilter.h"
 #import "AKDCBlock.h"
 #import "AKDecimator.h"
@@ -198,6 +208,11 @@
 #import "AKHighPassButterworthFilter.h"
 #import "AKLowPassButterworthFilter.h"
 
+// Operations - Signal Modifiers - Filters - Parametric Equalizers
+#import "AKHighShelfParametricEqualizerFilter.h"
+#import "AKLowShelfParametricEqualizerFilter.h"
+#import "AKPeakingParametricEqualizerFilter.h"
+
 // Operations - Signal Modifiers - Reverbs
 #import "AKBallWithinTheBoxReverb.h"
 #import "AKFlatFrequencyResponseReverb.h"
@@ -209,6 +224,13 @@
 #import "AKBalance.h"
 #import "AKMix.h"
 #import "AKPanner.h"
+
+// Sound Fonts
+#import "AKSoundFont.h"
+#import "AKSoundFontInstrument.h"
+#import "AKSoundFontInstrumentPlayer.h"
+#import "AKSoundFontPreset.h"
+#import "AKSoundFontPresetPlayer.h"
 
 // Utilities
 #import "AKSampler.h"
@@ -242,7 +264,9 @@
 #import "AKMicrophone.h"
 
 // Utilities - Instruments - Processors
-#import "AKReverbProcessor.h"
+#import "AKDelayPedal.h"
+#import "AKPitchShifterPedal.h"
+#import "AKReverbPedal.h"
 
 // Utilities - Instruments - Synthesizers
 #import "AKFMOscillatorInstrument.h"

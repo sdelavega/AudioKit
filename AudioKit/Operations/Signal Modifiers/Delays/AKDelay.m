@@ -29,7 +29,7 @@
         _delayTime = delayTime;
         _feedback = feedback;
         [self setUpConnections];
-}
+    }
     return self;
 }
 
@@ -48,34 +48,26 @@
 }
 
 + (instancetype)delayWithInput:(AKParameter *)input
-                    delayTime:(AKConstant *)delayTime
-{
-    return [[AKDelay alloc] initWithInput:input
-                    delayTime:delayTime];
-}
-
-- (instancetype)initDefaultDelayWithInput:(AKParameter *)input
-                    delayTime:(AKConstant *)delayTime
-{
-    self = [super initWithString:[self operationName]];
-    if (self) {
-        _input = input;
-        _delayTime = delayTime;
-        // Default Values
-        _feedback = akp(0.0);
-        [self setUpConnections];
-    }
-    return self;
-}
-
-+ (instancetype)defaultDelayWithInput:(AKParameter *)input
                      delayTime:(AKConstant *)delayTime
 {
-    return [[AKDelay alloc] initDefaultDelayWithInput:input
+    return [[AKDelay alloc] initWithInput:input
                                 delayTime:delayTime];
 }
 
-- (instancetype)initChoppedDelayWithInput:(AKParameter *)input
+- (instancetype)initWithPresetDefaultDelayWithInput:(AKParameter *)input
+                                          delayTime:(AKConstant *)delayTime
+{
+    return [self initWithInput:input delayTime:delayTime];
+}
+
++ (instancetype)presetDefaultDelayWithInput:(AKParameter *)input
+                                  delayTime:(AKConstant *)delayTime
+{
+    return [[AKDelay alloc] initWithInput:input
+                                delayTime:delayTime];
+}
+
+- (instancetype)initWithPresetChoppedDelayWithInput:(AKParameter *)input;
 {
     self = [super initWithString:[self operationName]];
     if (self) {
@@ -88,12 +80,12 @@
     return self;
 }
 
-+ (instancetype)choppedDelayWithInput:(AKParameter *)input
++ (instancetype)presetChoppedDelayWithInput:(AKParameter *)input;
 {
-    return [[AKDelay alloc] initChoppedDelayWithInput:input];
+    return [[AKDelay alloc] initWithPresetChoppedDelayWithInput:input];
 }
 
-- (instancetype)initRhythmicDelayWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetRhythmicDelayWithInput:(AKParameter *)input;
 {
     self = [super initWithString:[self operationName]];
     if (self) {
@@ -106,12 +98,12 @@
     return self;
 }
 
-+ (instancetype)rhythmicAttackDelayWithInput:(AKParameter *)input;
++ (instancetype)presetRhythmicAttackDelayWithInput:(AKParameter *)input;
 {
-    return [[AKDelay alloc] initRhythmicDelayWithInput:input];
+    return [[AKDelay alloc] initWithPresetRhythmicDelayWithInput:input];
 }
 
-- (instancetype)initShortAttackDelayWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetShortAttackDelayWithInput:(AKParameter *)input;
 {
     self = [super initWithString:[self operationName]];
     if (self) {
@@ -124,9 +116,9 @@
     return self;
 }
 
-+ (instancetype)shortAttackDelayWithInput:(AKParameter *)input
++ (instancetype)presetShortAttackDelayWithInput:(AKParameter *)input;
 {
-    return [[AKDelay alloc] initShortAttackDelayWithInput:input];
+    return [[AKDelay alloc] initWithPresetShortAttackDelayWithInput:input];
 }
 
 - (void)setFeedback:(AKParameter *)feedback {
@@ -148,11 +140,11 @@
 - (NSString *)inlineStringForCSD
 {
     NSMutableString *inlineCSDString = [[NSMutableString alloc] init];
-
+    
     [inlineCSDString appendString:@"akdelay("];
     [inlineCSDString appendString:[self inputsString]];
     [inlineCSDString appendString:@")"];
-
+    
     return inlineCSDString;
 }
 
@@ -160,7 +152,7 @@
 - (NSString *)stringForCSD
 {
     NSMutableString *csdString = [[NSMutableString alloc] init];
-
+    
     [csdString appendFormat:@"%@ akdelay ", self];
     [csdString appendString:[self inputsString]];
     return csdString;
@@ -168,20 +160,20 @@
 
 - (NSString *)inputsString {
     NSMutableString *inputsString = [[NSMutableString alloc] init];
-
+    
     
     if ([_input class] == [AKAudio class]) {
         [inputsString appendFormat:@"%@, ", _input];
     } else {
         [inputsString appendFormat:@"AKAudio(%@), ", _input];
     }
-
+    
     if ([_feedback class] == [AKControl class]) {
         [inputsString appendFormat:@"%@, ", _feedback];
     } else {
         [inputsString appendFormat:@"AKControl(%@), ", _feedback];
     }
-
+    
     [inputsString appendFormat:@"%@", _delayTime];
     return inputsString;
 }

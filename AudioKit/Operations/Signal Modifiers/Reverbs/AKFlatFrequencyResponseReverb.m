@@ -49,25 +49,17 @@
     return [[AKFlatFrequencyResponseReverb alloc] initWithInput:input];
 }
 
-- (instancetype)initDefaultReverbWithInput:(AKParameter *)input
+- (instancetype)initWithPresetDefaultReverbWithInput:(AKParameter *)input
 {
-    self = [super initWithString:[self operationName]];
-    if (self) {
-        _input = input;
-        // Default Values
-        _reverbDuration = akp(0.5);
-        _loopDuration = akp(0.1);
-        [self setUpConnections];
-    }
-    return self;
+    return [self initWithInput:input];
 }
 
-+ (instancetype)defaultReverbWithInput:(AKParameter *)input
++ (instancetype)presetDefaultReverbWithInput:(AKParameter *)input
 {
-    return [[AKFlatFrequencyResponseReverb alloc] initDefaultReverbWithInput:input];
+    return [[AKFlatFrequencyResponseReverb alloc] initWithInput:input];
 }
 
-- (instancetype)initMetallicReverbWithInput:(AKParameter *)input
+- (instancetype)initWithPresetMetallicReverbWithInput:(AKParameter *)input;
 {
     self = [super initWithString:[self operationName]];
     if (self) {
@@ -80,12 +72,12 @@
     return self;
 }
 
-+ (instancetype)metallicReverbWithInput:(AKParameter *)input
++ (instancetype)presetMetallicReverbWithInput:(AKParameter *)input;
 {
-    return [[AKFlatFrequencyResponseReverb alloc] initMetallicReverbWithInput:input];
+    return [[AKFlatFrequencyResponseReverb alloc] initWithPresetMetallicReverbWithInput:input];
 }
 
-- (instancetype)initStutteringReverbWithInput:(AKParameter *)input
+- (instancetype)initWithPresetStutteringReverbWithInput:(AKParameter *)input;
 {
     self = [super initWithString:[self operationName]];
     if (self) {
@@ -98,9 +90,9 @@
     return self;
 }
 
-+ (instancetype)stutteringReverbWithInput:(AKParameter *)input
++ (instancetype)presetStutteringReverbWithInput:(AKParameter *)input;
 {
-    return [[AKFlatFrequencyResponseReverb alloc] initStutteringReverbWithInput:input];
+    return [[AKFlatFrequencyResponseReverb alloc] initWithPresetStutteringReverbWithInput:input];
 }
 
 - (void)setReverbDuration:(AKParameter *)reverbDuration {

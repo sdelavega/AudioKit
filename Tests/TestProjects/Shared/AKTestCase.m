@@ -23,4 +23,19 @@
     [super tearDown];
 }
 
+- (NSString *)outputFileWithName:(NSString *)name
+{
+    return [NSString stringWithFormat:@"%@/AKTest-%@.aiff", NSTemporaryDirectory(), name];
+}
+
+- (NSString *)md5ForFile:(NSString *)file {
+    return [[NSData dataWithContentsOfFile:file] MD5];
+}
+
+- (NSString *)md5ForOutputWithDuration:(float)duration
+{
+    NSString *outputFile = [self outputFileWithName:@"Output"];
+    [[AKManager sharedManager] renderToFile:outputFile forDuration:duration];
+    return [self md5ForFile:outputFile];
+}
 @end

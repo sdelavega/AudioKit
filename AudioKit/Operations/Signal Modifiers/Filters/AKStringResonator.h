@@ -17,7 +17,7 @@
 NS_ASSUME_NONNULL_BEGIN
 @interface AKStringResonator : AKAudio
 /// Instantiates the string resonator with all values
-/// @param input The input audio signal. [Default Value: ]
+/// @param input The input audio signal.
 /// @param fundamentalFrequency The fundamental frequency of the string. Updated at Control-rate. [Default Value: 100]
 /// @param fdbgain feedback gain, between 0 and 1, of the internal delay line. A value close to 1 creates a slower decay and a more pronounced resonance. Small values may leave the input signal unaffected. Depending on the filter frequency, typical values are > .9. [Default Value: 0.95]
 - (instancetype)initWithInput:(AKParameter *)input
@@ -34,11 +34,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Instantiates the string resonator with default values
 /// @param input The input audio signal.
-- (instancetype)initDefaultResonatorWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetDefaultResonatorWithInput:(AKParameter *)input;
 
 /// Instantiates the string resonator with default values
 /// @param input The input audio signal.
-+ (instancetype)defaultResonatorWithInput:(AKParameter *)input;
++ (instancetype)presetDefaultResonatorWithInput:(AKParameter *)input;
 
 /// Instantiates the string resonator with a machine-like sound
 /// @param input The input audio signal.

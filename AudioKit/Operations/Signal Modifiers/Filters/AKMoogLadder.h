@@ -17,7 +17,7 @@
 NS_ASSUME_NONNULL_BEGIN
 @interface AKMoogLadder : AKAudio
 /// Instantiates the moog ladder with all values
-/// @param input Input signal [Default Value: ]
+/// @param input Input signal 
 /// @param cutoffFrequency Filter cutoff frequency Updated at Control-rate. [Default Value: 100]
 /// @param resonance Resonance, generally < 1, but not limited to it. Higher than 1 resonance values might cause aliasing, analogue synths generally allow resonances to be above 1. Updated at Control-rate. [Default Value: 0.5]
 - (instancetype)initWithInput:(AKParameter *)input
@@ -34,27 +34,27 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Instantiates the moog ladder with default values
 /// @param input Input signal
-- (instancetype)initDefaultFilterWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetDefaultFilterWithInput:(AKParameter *)input;
 
 /// Instantiates the moog ladder with default values
 /// @param input Input signal
-+ (instancetype)defaultFilterWithInput:(AKParameter *)input;
++ (instancetype)presetDefaultFilterWithInput:(AKParameter *)input;
 
 /// Instantiates the moog ladder with an 'underwater' sound
 /// @param input Input signal
-- (instancetype)initUnderwaterFilterWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetUnderwaterFilterWithInput:(AKParameter *)input;
 
 /// Instantiates the moog ladder with an 'underwater' sound
 /// @param input Input signal
-+ (instancetype)underwaterFilterWithInput:(AKParameter *)input;
++ (instancetype)presetUnderwaterFilterWithInput:(AKParameter *)input;
 
 /// Instantiates the moog ladder with an bass-heavy sound
 /// @param input Input signal
-- (instancetype)initBassHeavyFilterWithInput:(AKParameter *)input;
+- (instancetype)initWithPresetBassHeavyFilterWithInput:(AKParameter *)input;
 
 /// Instantiates the moog ladder with an bass-heavy sound
 /// @param input Input signal
-+ (instancetype)bassHeavyFilterWithInput:(AKParameter *)input;
++ (instancetype)presetBassHeavyFilterWithInput:(AKParameter *)input;
 
 /// Filter cutoff frequency [Default Value: 100]
 @property (nonatomic) AKParameter *cutoffFrequency;

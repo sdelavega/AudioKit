@@ -100,12 +100,13 @@ static AKManager *_sharedManager = nil;
         _engine = [[CsoundObj alloc] init];
         [_engine addListener:self];
         _engine.messageDelegate = self;
-        
+
+        if (AKSettings.shared.MIDIEnabled) {
+            _midi = [[AKMidi alloc] init];
+        }
+
         _isRunning = NO;
         _isLogging = AKSettings.shared.loggingEnabled;
-#ifdef AK_TESTING
-        _testLog = [NSMutableArray array];
-#endif
         _totalRunDuration = 10000000;
 
         _batchInstructions = [[NSString alloc] init];
@@ -122,11 +123,12 @@ static AKManager *_sharedManager = nil;
                     @"-o %@           ; Write sound to the host audio output\n"
                     "--expression-opt ; Enable expression optimizations\n"
                     "-m0              ; Print raw amplitudes\n"
+                    "-M0              ; Enable MIDI internally\n"
+                    "-+rtmidi=null    ; No MIDI driver\n"
                     "%@\n",
                     AKSettings.shared.audioOutput, inputOption];
         
         _csdFile = [NSString stringWithFormat:@"%@/AudioKit-%@.csd", NSTemporaryDirectory(), @(getpid())];
-        _midi = [[AKMidi alloc] init];
         _sequences = [NSMutableDictionary dictionary];
         
         // Get notified when the application ends so we can a chance to do some cleanups
@@ -261,20 +263,6 @@ static AKManager *_sharedManager = nil;
 }
 
 // -----------------------------------------------------------------------------
-#  pragma mark AKMidi
-// -----------------------------------------------------------------------------
-
-- (void)enableMidi
-{
-    [_midi openMidiIn];
-}
-
-- (void)disableMidi
-{
-    [_midi closeMidiIn];
-}
-
-// -----------------------------------------------------------------------------
 #  pragma mark - Csound control
 // -----------------------------------------------------------------------------
 
@@ -342,23 +330,22 @@ static AKManager *_sharedManager = nil;
 // -----------------------------------------------------------------------------
 
 - (void)messageReceivedFrom:(CsoundObj *)csoundObj attr:(int)attr message:(NSString *)msg
-{
-#ifdef AK_TESTING
-    if ([msg rangeOfString:@"AKTEST"].location != NSNotFound) {
-        [_testLog addObject:[msg stringByReplacingOccurrencesOfString:@"AKTEST" withString:@""]];
-        return;
-    }
-#endif
-    
+{    
     if (_isLogging) {
         if (AKSettings.shared.messagesEnabled) {
             NSLog(@"Csound(%d): %@", attr, msg);
         } else {
             NSLog(@"%@", msg);
         }
+    } else if (attr & CSOUNDMSG_ERROR) {
+        NSLog(@"Csound Error: %@", msg);
     }
 }
 
+- (void)csoundObjWillStart:(CsoundObj *)csoundObj
+{
+    [_midi connectToCsound:_engine];
+}
 
 - (void)csoundObjStarted:(CsoundObj *)csoundObj {
     if (_isLogging) NSLog(@"Csound Started.");
